@@ -23,20 +23,28 @@ def resolve_audio_tokenizer_path(model_path: str) -> Path | None:
 
     Local directories (dev checkouts) resolve directly: present returns the
     subdirectory, absent returns ``None`` so callers can fall back.  Repo ids
-    resolve against the HF snapshot cache via ``snapshot_download`` with a
-    narrow allow-pattern, so an already-cached snapshot is not re-downloaded.
-    Returns ``None`` when the checkpoint carries no ``audio_tokenizer``
-    subdirectory.
+    resolve through the vLLM-tagged HF helpers: an already-complete cached
+    snapshot is preferred (offline deployments keep working), and a partial
+    cache falls through to a targeted online fetch restricted to the bundled
+    tokenizer subtree.  Returns ``None`` when the checkpoint carries no
+    ``audio_tokenizer`` subdirectory.
     """
     root = Path(model_path)
     if root.is_dir():
         bundled = root / "audio_tokenizer"
         return bundled if bundled.is_dir() else None
 
-    from huggingface_hub import snapshot_download
+    from vllm.transformers_utils.repo_utils import hf_api
 
-    snapshot_root = Path(snapshot_download(model_path, allow_patterns=["audio_tokenizer/*"]))
-    bundled = snapshot_root / "audio_tokenizer"
+    kwargs: dict[str, object] = {"allow_patterns": ["audio_tokenizer/*"]}
+    try:
+        cached = Path(hf_api().snapshot_download(model_path, local_files_only=True, **kwargs))
+    except Exception:
+        cached = None
+    if cached is not None and (cached / "audio_tokenizer").is_dir():
+        return cached / "audio_tokenizer"
+    online = Path(hf_api().snapshot_download(model_path, **kwargs))
+    bundled = online / "audio_tokenizer"
     return bundled if bundled.is_dir() else None
 
 
