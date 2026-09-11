@@ -14,7 +14,6 @@ pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
 def test_breeze_pipeline_is_registered_with_talker_and_codec_stages():
     assert OMNI_PIPELINES["breeze"] is BREEZE_TTS_2_PIPELINE
-    assert OMNI_PIPELINES["breeze_tts_2"] is BREEZE_TTS_2_PIPELINE
     assert [stage.model_stage for stage in BREEZE_TTS_2_PIPELINE.stages] == [
         "breeze_tts_2",
         "breeze_tts_2_codec",
@@ -31,4 +30,7 @@ def test_breeze_default_deploy_is_streaming():
     config = yaml.safe_load(deploy_path.read_text(encoding="utf-8"))
     assert config["async_chunk"] is True
     assert len(config["stages"]) == 2
+    # Stage 0 must prefill each prompt in one step: the talker builds a codec
+    # frame from the last hidden row of every scheduled request.
+    assert config["stages"][0]["enable_chunked_prefill"] is False
     assert config["connectors"]["connector_of_shared_memory"]["extra"]["breeze_codec_chunk_frames"] == 8

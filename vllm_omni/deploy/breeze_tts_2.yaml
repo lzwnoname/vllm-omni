@@ -18,6 +18,10 @@ stages:
     max_num_seqs: 8
     gpu_memory_utilization: 0.80
     enable_prefix_caching: false
+    # The talker derives one codec frame from the last hidden row of every
+    # scheduled request. A partially scheduled prompt would yield a frame from
+    # a mid-prompt hidden state, so keep each prefill in a single step.
+    enable_chunked_prefill: false
     async_scheduling: true
     max_num_batched_tokens: 4096
     max_model_len: 4096

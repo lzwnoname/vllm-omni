@@ -130,7 +130,6 @@ PipelineResolverFunc: TypeAlias = Callable[[PretrainedConfig | None], PipelineCo
 OMNI_PIPELINES: dict[str, PipelineConfig | PipelineResolverFunc] = {
     "aura_omni": AURA_OMNI_PIPELINE,
     "breeze": BREEZE_TTS_2_PIPELINE,
-    "breeze_tts_2": BREEZE_TTS_2_PIPELINE,
     "joyai_vl_interaction": JOYAI_VL_INTERACTION_PIPELINE,
     "qwen2_5_omni": QWEN2_5_OMNI_PIPELINE,
     "qwen2_5_omni_thinker_only": QWEN2_5_OMNI_THINKER_ONLY_PIPELINE,
