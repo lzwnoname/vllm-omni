@@ -7,7 +7,8 @@
 - Vendor: BreezeBlue
 - Model: `BreezeBlue/Breeze-TTS-2` (`BreezeForConditionalGeneration`)
 - Task: Text-to-speech with speaker tags, natural-language style instructions, single-reference voice cloning, and reference+instruction "voice direction"
-- Mode: Online serving with the OpenAI-compatible `/v1/audio/speech` API (streaming and non-streaming)
+- Mode: Online serving with the OpenAI-compatible `/v1/audio/speech` API (streaming and non-streaming); offline `Omni` example
+- Hardware: 1x NVIDIA L20 48GB (CUDA)
 - Maintainer: Community
 
 ## When to use this recipe
@@ -33,6 +34,19 @@ Current scope: greedy sampling with `cfg_scale=1.0`; CFG ≠ 1.0 and
 `negative_prompt` are rejected with explicit client errors until companion
 request support lands.
 
+## Supported model contract
+
+| Item | Value |
+| ---- | ----- |
+| Tasks | Text-to-speech through `/v1/audio/speech` (online) and the offline `Omni` example |
+| Modes | plain, voice design (`instructions`), voice clone (`ref_audio` + `ref_text`), voice direction (reference + `instructions`) |
+| Languages | English and Chinese (model card) |
+| Reference audio | exactly one clip per request with its exact transcript; encoded by the bundled Qwen3-TTS tokenizer to 16 codebooks at 12.5 Hz |
+| Output | 24 kHz mono; `wav` or `pcm`; streaming SSE `speech.audio.delta` |
+| Length | prompt bounded by stage-0 `max_model_len=4096`; synthesis bounded by `max_new_tokens` codec frames (default 2048, about 164 s) |
+| Sampling | greedy (`temperature=0`) with `cfg_scale=1.0`; other guidance values and `negative_prompt` are rejected |
+| Deployment profile | `vllm_omni/deploy/breeze_tts_2.yaml`: two stages on one GPU, async-chunk streaming with 8-frame codec chunks, stage 0 `gpu_memory_utilization=0.80`, stage 1 `0.15` |
+
 ## References
 
 - Issue: [#6656 [New Model]: Breeze TTS 2](https://github.com/vllm-project/vllm-omni/issues/6656)
@@ -40,13 +54,22 @@ request support lands.
   [`examples/online_serving/text_to_speech/breeze_tts_2/`](../../examples/online_serving/text_to_speech/breeze_tts_2/),
   [`examples/offline_inference/text_to_speech/breeze_tts_2/`](../../examples/offline_inference/text_to_speech/breeze_tts_2/)
 
-## Environment
+## Hardware
+
+- Accelerator model and per-device memory: 1x NVIDIA L20 48GB
+- Number of devices: 1 (both stages are placed on device 0)
+- Device interconnect: not applicable (single device)
+- Host memory: no special requirement; per-request codec state is small
+- Qualification scope: functional serving of all four prompt modes, streaming PCM, and 4 concurrent mixed-mode requests (greedy, `cfg_scale=1.0`). No other accelerator is qualified by this recipe.
+
+## Software environment
 
 - OS: Linux
-- Python: 3.10+
-- vLLM / vLLM-Omni: use versions from your current checkout
-- GPU: verified on 1x NVIDIA L20; VRAM sizing follows the deploy YAML
-  (stage 0 `gpu_memory_utilization` dominant, stage 1 codec is small)
+- Python: 3.12.12
+- Driver / runtime: NVIDIA driver 580.82.07, CUDA 13.0 (PyTorch 2.13.0+cu130)
+- vLLM version: 0.28.0
+- vLLM-Omni version or commit: the commit that introduced this recipe (branch based on `main` @ `67ef0b64`)
+- Transformers: 5.14.1
 
 ## Command
 
@@ -153,3 +176,18 @@ warm-up) a few seconds of speech completes in roughly 3.4–3.8 s wall time.
 - **License**: the reference inference code is Apache 2.0; the checkpoints are
   distributed under the separate BreezeBlue Research and Non-Commercial
   License. Commercial use requires written authorization from BreezeBlue.
+
+## Supported features
+
+| Feature | Status | Notes |
+| ------- | ------ | ----- |
+| Streaming output | ✓ | `async_chunk: true`, 8-frame inter-stage chunks, SSE `speech.audio.delta` PCM |
+| Voice cloning | ✓ | one reference clip plus transcript per request |
+| Voice design / voice direction | ✓ | `instructions` field, with or without a reference |
+| Classifier-free guidance | ✗ | `cfg_scale` must be `1.0`; `negative_prompt` rejected (follow-up) |
+| Non-greedy sampling | ✗ | greedy decoding only |
+| Prefix caching | ✗ | disabled in the deploy config |
+| Tensor / pipeline parallelism | untested | single-GPU profile only |
+| Quantization | ✗ | not supported in this release |
+| CUDA graphs | not tuned | depth decoder and stage-1 codec run eagerly |
+| Platforms | CUDA | qualified on 1x NVIDIA L20 |
