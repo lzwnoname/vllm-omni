@@ -118,3 +118,17 @@ def test_multiple_reference_clips_are_rejected_not_silently_truncated():
     assert "2" in error
     # A single-element list stays valid and reaches format validation.
     assert adapter.validate(_request(ref_audio=["a.wav"], ref_text="hello")) is None
+
+
+def test_non_greedy_sampling_overrides_are_rejected():
+    adapter = _adapter()
+
+    # Greedy values, including the deploy-config defaults, stay valid.
+    assert adapter.validate(_request({"temperature": 0.0, "top_p": 1.0, "top_k": -1})) is None
+    assert adapter.validate(_request({"temperature": 0})) is None
+    # The talker ignores the sampled code0, so any non-greedy override must be
+    # refused instead of silently producing greedy audio.
+    assert "greedy" in adapter.validate(_request({"temperature": 0.7}))
+    assert "greedy" in adapter.validate(_request({"top_p": 0.9}))
+    assert "greedy" in adapter.validate(_request({"top_k": 50}))
+    assert "temperature must be a number" in adapter.validate(_request({"temperature": "warm"}))

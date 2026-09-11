@@ -92,6 +92,13 @@ class BreezeTTS2Adapter(ARTTSAdapter):
             return "Breeze-TTS-2 currently supports only guidance_scale=1.0"
         if extra_params.get("negative_prompt"):
             return "Breeze-TTS-2 does not support negative_prompt/CFG yet"
+        # The talker selects codebook 0 by argmax inside make_omni_output and
+        # ignores the scheduler's sampled token, so non-greedy overrides would
+        # not change the audio while still letting the sampler draw an early
+        # EOS. Reject them until the talker consumes the sampled code.
+        greedy_error = _validate_greedy_sampling(extra_params)
+        if greedy_error is not None:
+            return greedy_error
         if request.max_new_tokens is not None:
             if request.max_new_tokens < self.max_new_tokens_min:
                 return f"max_new_tokens must be at least {self.max_new_tokens_min}"
@@ -204,6 +211,32 @@ class BreezeTTS2Adapter(ARTTSAdapter):
     ) -> list:
         del prompt, request_id
         return apply_max_new_tokens(sampling_params_list, request)
+
+
+def _validate_greedy_sampling(extra_params: dict[str, Any]) -> str | None:
+    """Return an error unless the sampling overrides keep decoding greedy."""
+    temperature = extra_params.get("temperature")
+    if temperature is not None:
+        try:
+            if float(temperature) != 0.0:
+                return "Breeze-TTS-2 currently supports only greedy decoding (temperature=0)"
+        except (TypeError, ValueError):
+            return "Breeze-TTS-2 temperature must be a number"
+    top_p = extra_params.get("top_p")
+    if top_p is not None:
+        try:
+            if float(top_p) != 1.0:
+                return "Breeze-TTS-2 currently supports only greedy decoding (top_p=1.0)"
+        except (TypeError, ValueError):
+            return "Breeze-TTS-2 top_p must be a number"
+    top_k = extra_params.get("top_k")
+    if top_k is not None:
+        try:
+            if int(top_k) not in (-1, 0, 1):
+                return "Breeze-TTS-2 currently supports only greedy decoding (top_k=-1)"
+        except (TypeError, ValueError):
+            return "Breeze-TTS-2 top_k must be an integer"
+    return None
 
 
 __all__ = ["BreezeTTS2Adapter"]
