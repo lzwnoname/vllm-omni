@@ -37,9 +37,9 @@ class BreezeTTS2Adapter(ARTTSAdapter):
     stage_keys = frozenset({"breeze_tts_2"})
     model_archs = frozenset({"BreezeForConditionalGeneration"})
     name = "breeze_tts_2"
-    # Breeze's architecture is unique, while its stage id is namespaced and not
-    # shared.  Resolve architecture-only deployments ahead of generic/default
-    # stage-key detectors without competing with VoxCPM's priority-10 rule.
+    # Breeze's architecture and stage key are unique, so this detector cannot
+    # collide with another adapter. Lower priority runs first; 9 keeps it
+    # ahead of the default-priority (100) detectors.
     detect_priority = 9
     supported_output_sample_rates = frozenset({24000})
 

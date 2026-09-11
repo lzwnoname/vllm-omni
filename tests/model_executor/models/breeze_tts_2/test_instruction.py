@@ -96,6 +96,7 @@ def test_non_unit_cfg_is_rejected_until_negative_branch_exists():
 
     assert "guidance_scale=1.0" in adapter.validate(_request({"guidance_scale": 2.0}))
     assert "guidance_scale=1.0" in adapter.validate(_request({"cfg_scale": 0.5}))
+    assert "negative_prompt" in adapter.validate(_request({"negative_prompt": "noisy"}))
 
 
 def test_unsupported_conditioning_fields_are_rejected_not_ignored():

@@ -146,4 +146,4 @@ class BreezeReferenceAudioTokenizer:
         return codes.to(dtype=torch.int16)
 
 
-__all__ = ["BreezeReferenceAudioTokenizer"]
+__all__ = ["BreezeReferenceAudioTokenizer", "resolve_audio_tokenizer_path"]
